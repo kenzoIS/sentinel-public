@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="SENTINEL public portfolio demo for explainable scam-message analysis" />
+  <title>SENTINEL — Scam Detection Demo</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+    body { margin:0; background:#081018; color:#e8eef5; }
+    main { width:min(900px, calc(100% - 32px)); margin:64px auto; }
+    .eyebrow { text-transform:uppercase; letter-spacing:.14em; color:#7dd3fc; font-size:.78rem; font-weight:700; }
+    h1 { font-size:clamp(2rem,6vw,4rem); margin:.35rem 0 1rem; }
+    p { color:#a9b8c6; line-height:1.6; }
+    .card { background:#0f1b27; border:1px solid #233447; border-radius:18px; padding:24px; margin-top:28px; }
+    textarea { box-sizing:border-box; width:100%; min-height:180px; resize:vertical; padding:16px; border-radius:12px; border:1px solid #33485e; background:#081018; color:#fff; font:inherit; }
+    button { margin-top:14px; border:0; border-radius:10px; padding:12px 18px; background:#38bdf8; color:#06202b; font-weight:800; cursor:pointer; }
+    button:disabled { opacity:.6; cursor:wait; }
+    #result { white-space:pre-wrap; margin-top:18px; padding:18px; border-radius:12px; background:#081018; display:none; }
+    .score { font-size:2rem; font-weight:800; }
+    footer { margin-top:30px; font-size:.85rem; color:#718096; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">Public portfolio edition</div>
+    <h1>SENTINEL</h1>
+    <p>Explainable Philippine scam-message analysis using TF-IDF similarity, urgency and impersonation signals, malicious-link heuristics, and composite risk scoring.</p>
+
+    <section class="card">
+      <label for="message"><strong>Message to analyze</strong></label>
+      <p>Use sample or synthetic content only. Avoid submitting sensitive personal information.</p>
+      <textarea id="message" placeholder="Paste a message here..."></textarea>
+      <button id="analyze">Analyze message</button>
+      <div id="result" aria-live="polite"></div>
+    </section>
+
+    <footer>This public repository contains no production credentials or operational data.</footer>
+  </main>
+
+  <script>
+    const button = document.querySelector('#analyze');
+    const field = document.querySelector('#message');
+    const result = document.querySelector('#result');
+
+    button.addEventListener('click', async () => {
+      const message = field.value.trim();
+      if (!message) return;
+      button.disabled = true;
+      result.style.display = 'block';
+      result.textContent = 'Analyzing…';
+      try {
+        const response = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Analysis failed');
+        result.innerHTML = `<div class="score">${data.risk_emoji || ''} ${data.risk_level} — ${data.score_percent}%</div><p>${data.recommendation}</p>`;
+      } catch (error) {
+        result.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
