@@ -1,3 +1,7 @@
+# =============================================================
+# SENTINEL — Supabase Database Client
+# =============================================================
+
 import os
 import logging
 from supabase import create_client, Client
@@ -6,17 +10,16 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
+
 class SupabaseClient:
     def __init__(self):
         url = os.getenv('SUPABASE_URL', '').strip()
         key = os.getenv('SUPABASE_KEY', '').strip()
-
         if not url or not key:
             raise ValueError(
                 "SUPABASE_URL and SUPABASE_KEY must be set in your .env file. "
-                "Get them from your Supabase project settings."
+                "Get them from your Supabase project → Settings → API."
             )
-
         self.client: Client = create_client(url, key)
         logger.info("Supabase client initialized.")
 
@@ -29,9 +32,7 @@ class SupabaseClient:
                 'similarity_score': result['layers']['layer1']['score'],
                 'urgency_score': result['layers']['layer2']['score'],
                 'red_flag_score': result['layers']['layer3']['score'],
-                'triggered_keywords': [
-                    t['keyword'] for t in result['layers']['layer2']['triggered_keywords']
-                ],
+                'triggered_keywords': [t['keyword'] for t in result['layers']['layer2']['triggered_keywords']],
                 'triggered_patterns': result['layers']['layer3']['flagged_phrases'],
                 'recommendation': result['recommendation'][:1000],
                 'model_version': result['model_version'],
@@ -44,34 +45,34 @@ class SupabaseClient:
 
     def submit_feedback(self, log_id: str, feedback: str, message_text: str = None) -> bool:
         try:
-            self.client.table('analysis_logs').update({
-                'user_feedback': feedback
-            }).eq('id', log_id).execute()
+            self.client.table('analysis_logs').update({'user_feedback': feedback}).eq('id', log_id).execute()
+            logger.info(f"Feedback '{feedback}' written to analysis_logs. Log ID: {log_id}")
         except Exception as e:
-            logger.error(f"submit_feedback analysis_logs update failed: {e}")
+            logger.error(f"submit_feedback STEP 1 FAILED (analysis_logs update): {e}")
             return False
-
-        if feedback == 'confirmed_scam' and message_text and message_text.strip():
+        if feedback == 'confirmed_scam':
+            if not message_text or not message_text.strip():
+                logger.warning(f"submit_feedback: feedback is 'confirmed_scam' but message_text is empty. Scam report NOT added. Log ID: {log_id}")
+                return True
             try:
-                self.client.table('scam_reports').insert({
+                insert_resp = self.client.table('scam_reports').insert({
                     'message_text': message_text.strip()[:2000],
                     'report_source': 'user_feedback',
                     'is_verified': True,
                     'analysis_log_id': log_id,
                 }).execute()
+                if insert_resp.data:
+                    logger.info(f"Scam report inserted into scam_reports. Log ID: {log_id}")
+                else:
+                    logger.warning("scam_reports insert returned no data. Review your Supabase RLS policies and grants for this project.")
             except Exception as e:
-                logger.error(f"submit_feedback scam_reports insert failed: {e}")
-
+                logger.error(f"submit_feedback STEP 2 FAILED (scam_reports insert): {e}. Review least-privilege Supabase RLS policies and grants.")
+                return True
         return True
 
     def fetch_confirmed_scams(self) -> list:
         try:
-            response = (
-                self.client.table('scam_reports')
-                .select('message_text, category, report_source')
-                .eq('is_verified', True)
-                .execute()
-            )
+            response = self.client.table('scam_reports').select('message_text, category, report_source').eq('is_verified', True).execute()
             return response.data or []
         except Exception as e:
             logger.error(f"fetch_confirmed_scams failed: {e}")
@@ -104,13 +105,7 @@ class SupabaseClient:
 
     def get_latest_model_version(self) -> dict | None:
         try:
-            response = (
-                self.client.table('model_versions')
-                .select('*')
-                .order('version_number', desc=True)
-                .limit(1)
-                .execute()
-            )
+            response = self.client.table('model_versions').select('*').order('version_number', desc=True).limit(1).execute()
             return response.data[0] if response.data else None
         except Exception as e:
             logger.error(f"get_latest_model_version failed: {e}")
@@ -118,12 +113,7 @@ class SupabaseClient:
 
     def get_model_history(self) -> list:
         try:
-            response = (
-                self.client.table('model_versions')
-                .select('*')
-                .order('version_number', desc=True)
-                .execute()
-            )
+            response = self.client.table('model_versions').select('*').order('version_number', desc=True).execute()
             return response.data or []
         except Exception as e:
             logger.error(f"get_model_history failed: {e}")
@@ -132,21 +122,14 @@ class SupabaseClient:
     def get_stats(self) -> dict:
         try:
             logs_resp = self.client.table('analysis_logs').select('risk_level, created_at').execute()
-            reports_resp = (
-                self.client.table('scam_reports')
-                .select('id, created_at')
-                .eq('is_verified', True)
-                .execute()
-            )
+            reports_resp = self.client.table('scam_reports').select('id, created_at').eq('is_verified', True).execute()
             version_resp = self.get_latest_model_version()
-
             logs = logs_resp.data or []
             reports = reports_resp.data or []
             risk_dist = {}
             for log in logs:
                 level = log['risk_level']
                 risk_dist[level] = risk_dist.get(level, 0) + 1
-
             scam_count = risk_dist.get('CRITICAL', 0) + risk_dist.get('DANGER', 0)
             return {
                 'total_analyses': len(logs),
@@ -159,25 +142,11 @@ class SupabaseClient:
             }
         except Exception as e:
             logger.error(f"get_stats failed: {e}")
-            return {
-                'total_analyses': 0,
-                'scam_reports': 0,
-                'scams_detected': 0,
-                'safe_messages': 0,
-                'risk_distribution': {},
-                'detection_rate': 0,
-                'latest_model': None,
-            }
+            return {'total_analyses':0,'scam_reports':0,'scams_detected':0,'safe_messages':0,'risk_distribution':{},'detection_rate':0,'latest_model':None}
 
     def get_recent_logs(self, limit: int = 10) -> list:
         try:
-            response = (
-                self.client.table('analysis_logs')
-                .select('id, risk_level, composite_score, created_at, user_feedback')
-                .order('created_at', desc=True)
-                .limit(limit)
-                .execute()
-            )
+            response = self.client.table('analysis_logs').select('id, risk_level, composite_score, created_at, user_feedback').order('created_at', desc=True).limit(limit).execute()
             return response.data or []
         except Exception as e:
             logger.error(f"get_recent_logs failed: {e}")
