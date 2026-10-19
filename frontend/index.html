@@ -1,69 +1,30 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="SENTINEL public portfolio demo for explainable scam-message analysis" />
-  <title>SENTINEL — Scam Detection Demo</title>
-  <style>
-    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-    body { margin:0; background:#081018; color:#e8eef5; }
-    main { width:min(900px, calc(100% - 32px)); margin:64px auto; }
-    .eyebrow { text-transform:uppercase; letter-spacing:.14em; color:#7dd3fc; font-size:.78rem; font-weight:700; }
-    h1 { font-size:clamp(2rem,6vw,4rem); margin:.35rem 0 1rem; }
-    p { color:#a9b8c6; line-height:1.6; }
-    .card { background:#0f1b27; border:1px solid #233447; border-radius:18px; padding:24px; margin-top:28px; }
-    textarea { box-sizing:border-box; width:100%; min-height:180px; resize:vertical; padding:16px; border-radius:12px; border:1px solid #33485e; background:#081018; color:#fff; font:inherit; }
-    button { margin-top:14px; border:0; border-radius:10px; padding:12px 18px; background:#38bdf8; color:#06202b; font-weight:800; cursor:pointer; }
-    button:disabled { opacity:.6; cursor:wait; }
-    #result { white-space:pre-wrap; margin-top:18px; padding:18px; border-radius:12px; background:#081018; display:none; }
-    .score { font-size:2rem; font-weight:800; }
-    footer { margin-top:30px; font-size:.85rem; color:#718096; }
-  </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SENTINEL — Philippine Scam Detection AI</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
 </head>
 <body>
-  <main>
-    <div class="eyebrow">Public portfolio edition</div>
-    <h1>SENTINEL</h1>
-    <p>Explainable Philippine scam-message analysis using TF-IDF similarity, urgency and impersonation signals, malicious-link heuristics, and composite risk scoring.</p>
-
-    <section class="card">
-      <label for="message"><strong>Message to analyze</strong></label>
-      <p>Use sample or synthetic content only. Avoid submitting sensitive personal information.</p>
-      <textarea id="message" placeholder="Paste a message here..."></textarea>
-      <button id="analyze">Analyze message</button>
-      <div id="result" aria-live="polite"></div>
+  <div class="ust-banner"><span class="ust-text">University of Santo Tomas &nbsp;·&nbsp; College of Information and Computing Sciences</span></div>
+  <header class="header"><div class="header-inner"><div class="logo"><div class="logo-icon"><svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 1.5L3 5.5v6c0 4.5 3.5 8.7 8 9.9 4.5-1.2 8-5.4 8-9.9v-6L11 1.5z" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.7)" stroke-width="1"/><path d="M7.5 11l3 3 4.5-4.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><span class="logo-name">SENTINEL</span><span class="logo-tagline">Philippine Scam Detection AI</span></div></div><div class="header-status"><div class="status-dot" id="statusDot"></div><span class="status-text" id="statusText">Connecting...</span><div class="model-badge" id="modelBadge">v1</div></div></div></header>
+  <main class="main"><div class="container">
+    <section class="input-panel" id="inputSection"><div class="hero"><div class="hero-label">AI-POWERED THREAT DETECTION</div><h1 class="hero-title">Is this message a <span class="accent-text">scam</span>?</h1><p class="hero-sub">Paste any suspicious SMS or email. SENTINEL runs a 4-layer ML pipeline trained on Philippine phishing patterns and tells you exactly why it may be dangerous.</p></div>
+      <div class="input-card"><div class="input-header"><span class="input-label">Paste suspicious message</span><button class="clear-btn" onclick="clearInput()">✕ Clear</button></div><textarea id="messageInput" class="message-input" placeholder="Paste the SMS, email, or chat message here..." maxlength="5000" oninput="document.getElementById('charCount').textContent=this.value.length"></textarea><div class="input-footer"><span class="char-count"><span id="charCount">0</span> / 5000</span><button class="analyze-btn" id="analyzeBtn" onclick="analyze()"><span class="btn-icon">✓</span><span class="btn-text">Analyze Message</span><div class="btn-loader" id="btnLoader"></div></button></div><div class="samples"><span class="samples-label">Try a sample:</span><button class="sample-btn danger-sample" onclick="loadSample('scam')">⚠ Scam Message</button><button class="sample-btn safe-sample" onclick="loadSample('safe')">✓ Safe Message</button></div></div>
     </section>
-
-    <footer>This public repository contains no production credentials or operational data.</footer>
-  </main>
-
-  <script>
-    const button = document.querySelector('#analyze');
-    const field = document.querySelector('#message');
-    const result = document.querySelector('#result');
-
-    button.addEventListener('click', async () => {
-      const message = field.value.trim();
-      if (!message) return;
-      button.disabled = true;
-      result.style.display = 'block';
-      result.textContent = 'Analyzing…';
-      try {
-        const response = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Analysis failed');
-        result.innerHTML = `<div class="score">${data.risk_emoji || ''} ${data.risk_level} — ${data.score_percent}%</div><p>${data.recommendation}</p>`;
-      } catch (error) {
-        result.textContent = error.message;
-      } finally {
-        button.disabled = false;
-      }
-    });
-  </script>
+    <section class="results-panel" id="resultsPanel" style="display:none"><div class="risk-header" id="riskHeader"><div class="risk-badge"><span class="risk-emoji" id="riskEmoji"></span><div><div class="risk-level" id="riskLevel"></div><div class="risk-sub" id="riskSub"></div></div></div><div class="risk-score-block"><div class="score-ring-container"><svg class="score-ring" viewBox="0 0 80 80"><circle class="ring-bg" cx="40" cy="40" r="32"/><circle class="ring-fill" cx="40" cy="40" r="32" id="ringFill"/></svg><div class="score-inner"><div class="score-num" id="scoreNum">0%</div><div class="score-lbl">Risk</div></div></div></div></div>
+      <div class="recommendation-card" id="recommendationCard"><div class="rec-header">SYSTEM RECOMMENDATION</div><p class="rec-text" id="recText"></p></div>
+      <div class="score-breakdown"><div class="breakdown-title">Risk Score Breakdown</div><div class="breakdown-bars"><div class="bar-row"><span class="bar-label">Structural Match <span class="bar-weight">(40%)</span></span><div class="bar-track"><div class="bar-fill" id="bar1" style="width:0%"></div></div><span class="bar-val" id="barVal1">0%</span></div><div class="bar-row"><span class="bar-label">Urgency Score <span class="bar-weight">(35%)</span></span><div class="bar-track"><div class="bar-fill" id="bar2" style="width:0%"></div></div><span class="bar-val" id="barVal2">0%</span></div><div class="bar-row"><span class="bar-label">Red Flags <span class="bar-weight">(25%)</span></span><div class="bar-track"><div class="bar-fill" id="bar3" style="width:0%"></div></div><span class="bar-val" id="barVal3">0%</span></div></div></div>
+      <div class="layers-grid"><div class="layer-card"><div class="layer-header" onclick="toggleLayer('layer1','chevron1')"><div class="layer-title"><span class="layer-num">01</span>Structural Pattern Matching (TF-IDF + Cosine Similarity)</div><span class="layer-score-badge" id="l1score">0%</span><span class="layer-chevron" id="chevron1">▾</span></div><div class="layer-body" id="layer1" style="display:none"><p class="layer-desc">TF-IDF vectorization + cosine similarity against known Philippine scam templates.</p><div class="layer-stats"><div class="stat-item"><span class="stat-label">Raw Similarity</span><span class="stat-val" id="l1raw">—</span></div><div class="stat-item"><span class="stat-label">Match Confidence</span><span class="stat-val" id="l1conf">—</span></div></div><div class="match-preview" id="l1preview" style="display:none"><div class="preview-label">Closest matching scam template in corpus:</div><div class="preview-text" id="l1previewText"></div></div></div></div>
+      <div class="layer-card"><div class="layer-header" onclick="toggleLayer('layer2','chevron2')"><div class="layer-title"><span class="layer-num">02</span>Psychological Pressure Analysis</div><span class="layer-score-badge" id="l2score">0%</span><span class="layer-chevron" id="chevron2">▾</span></div><div class="layer-body" id="layer2" style="display:none"><p class="layer-desc">Weighted urgency keyword detection and impersonation signals.</p><div class="keyword-grid" id="triggerKeywords"></div><div class="brand-warning" id="brandWarning" style="display:none"></div></div></div>
+      <div class="layer-card"><div class="layer-header" onclick="toggleLayer('layer3','chevron3')"><div class="layer-title"><span class="layer-num">03</span>Red Flag &amp; Malicious Link Detection</div><span class="layer-score-badge" id="l3score">0%</span><span class="layer-chevron" id="chevron3">▾</span></div><div class="layer-body" id="layer3" style="display:none"><p class="layer-desc">Regex-based detection of manipulation phrases, suspicious URLs, and structural red flags.</p><div class="phrase-grid" id="flaggedPhrases"></div><div class="url-list" id="suspiciousUrls" style="display:none"></div><div class="caps-warning" id="capsWarning" style="display:none">⚠ Excessive CAPS detected</div></div></div></div>
+      <div class="feedback-card"><div class="fb-section-label">Model Feedback</div><div class="feedback-title">Was SENTINEL's assessment correct?</div><p class="feedback-sub">Feedback can be stored in your own Supabase project and used to improve the model.</p><div class="fb-context-pill" id="fbContextPill"></div><div class="fb-buttons" id="feedbackButtons"><button class="fbbtn" id="fbYesBtn" onclick="submitFeedback(true)"></button><button class="fbbtn" id="fbNoBtn" onclick="submitFeedback(false)"></button></div><div class="fb-thanks" id="feedbackThanks" style="display:none"></div></div><div class="divider"></div><div class="reanalyze-bar"><button class="reanalyze-btn" onclick="resetAnalysis()">← Analyze Another Message</button></div></section>
+    <div class="scan-overlay" id="scanOverlay" style="display:none"><div class="scan-box"><span class="scan-icon">🛡️</span><div class="scan-text">Analyzing message...</div><div class="scan-steps"><div class="scan-step" id="step1">Layer 1: TF-IDF Pattern Matching</div><div class="scan-step" id="step2">Layer 2: Urgency Keyword Scan</div><div class="scan-step" id="step3">Layer 3: Red Flag Detection</div><div class="scan-step" id="step4">Layer 4: Risk Score Fusion</div></div><div class="scan-bar-track"><div class="scan-bar-fill" id="scanBarFill"></div></div></div></div>
+  </div></main>
+  <footer class="stats-bar"><div class="stats-inner"><div class="stat-ticker"><div class="ticker-item"><span class="ticker-num" id="statTotal">—</span><span class="ticker-label">Messages Analyzed</span></div><div class="ticker-divider"></div><div class="ticker-item"><span class="ticker-num danger-num" id="statScams">—</span><span class="ticker-label">Scams Detected</span></div><div class="ticker-divider"></div><div class="ticker-item"><span class="ticker-num" id="statReports">—</span><span class="ticker-label">Training Reports</span></div><div class="ticker-divider"></div><div class="ticker-item"><span class="ticker-num safe-num" id="statRate">—</span><span class="ticker-label">Detection Rate</span></div><div class="ticker-divider"></div><div class="ticker-item"><span class="ticker-num" id="statCorpus">—</span><span class="ticker-label">Corpus Size</span></div><div class="ticker-divider"></div><div class="ticker-item"><span class="ticker-num" id="statModel">v1</span><span class="ticker-label">Model Version</span></div></div></div></footer>
+  <script src="js/app.js"></script>
 </body>
 </html>
